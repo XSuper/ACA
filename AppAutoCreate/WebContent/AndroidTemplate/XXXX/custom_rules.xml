@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="custom_rules">
+
+	<taskdef resource="net/sf/antcontrib/antcontrib.properties">
+
+		<classpath>
+			<pathelement location="${ant.ANT_HOME}/lib/ant-contrib-1.0b3.jar" />
+		</classpath>
+	</taskdef>
+
+	<tstamp>
+		<format pattern="yyyyMMddhhmm" property="pktime" unit="hour" />
+	</tstamp>
+
+
+	<!--相关环境及工具配置-->
+	<property name="sdk.platformtools" value="${sdk.dir}/platform-tools" />
+	<property name="sdk.tools" value="${sdk.dir}/tools" />
+	<!--<property name="aapt" value="${sdk.dir}/build-tools/17.0.0/aapt.exe" />-->
+	<property name="aapt" value="${sdk.dir}/build-tools/android-4.4W/aapt" />
+	<property name="adb" value="${sdk.platformtools}/adb.exe" />
+	<!--<property name="dx" value="${sdk.dir}/build-tools/17.0.0/dx.bat" />-->
+	<property name="dx" value="${sdk.dir}/build-tools/android-4.4W/dx" />
+	<property name="apkbuilder" value="${sdk.tools}/apkbuilder.bat" />
+	<property name="android.jar" value="${sdk.dir}/platforms/android-15/android.jar" />
+
+
+
+	<property name="org_project.dir" value="./" />
+	<!--原工程目录-->
+	<!--新工程各个目录-->
+	<property name="build.dir" value="${org_project.dir}/build" />
+	<!--这级目录相对模板目录-->
+	<property name="project.dir" value="../../ProjectTemp/" />
+	<!--新工程目录-->
+	<property name="classes.dir" value="${project.dir}/bin/classes" />
+	<property name="buildtemp.dir" value="${project.dir}/build" />
+	<property name="src.dir" value="${project.dir}/src" />
+	<property name="res.dir" value="${project.dir}/res" />
+	<property name="gen.dir" value="${project.dir}/gen" />
+	<property name="asset.dir" value="${project.dir}/asset" />
+
+	<property name="channel" value="${market_channels}" />
+	
+	<!--*************************************************************
+    					
+    					修改包名
+	
+	*****************************************************************     -->
+	<target name="changePackage">
+
+		<!--替换工程中出现的包名 -->
+		<replaceregexp flags="g" encoding="UTF-8" byline="true">
+			<regexp pattern="package(.*)${package.old}" />
+			<substitution expression="package=&quot;${package.new}" />
+			<fileset dir="" includes="AndroidManifest.xml" />
+		</replaceregexp>
+
+		<!--替换代码出现的包名 -->
+		<replaceregexp flags="g" encoding="UTF-8" byline="true">
+			<regexp pattern="import(.*)${package.old}.R" />
+			<substitution expression="import ${package.new}.R" />
+			<fileset dir="./src" includes="**/*.java" />
+		</replaceregexp>
+	</target>
+
+	<!--生成R.java文件 ${sdk.dir}\platform-tools\aapt.exe-->
+	<target name="genRJava">
+		<exec executable="${aapt}" failonerror="true">
+			<arg value="package" />
+			<arg value="-m" />
+			<arg value="-J" />
+			<arg value="${project.dir}/gen" />
+			<arg value="-M" />
+			<arg value="${project.dir}/AndroidManifest.xml" />
+			<arg value="-S" />
+			<arg value="${res.dir}" />
+			<arg value="-I" />
+			<arg value="${android.jar}" />
+		</exec>
+	</target>
+	<!--复制模板到临时文件夹-->
+	<target name="move">
+		<delete dir="${project.dir}">
+		</delete>
+		<mkdir dir="${project.dir}" />
+
+		<!--    清空apk输出文件夹
+				<delete dir="../../OutApk/">
+				</delete>
+				<mkdir dir="../../OutApk/" />
+		-->
+		<copy todir="${project.dir}">
+			<fileset dir="${org_project.dir}" includes="**/*" />
+		</copy>
+	</target>
+	<!--替换版本名称和版本号 -->
+	<target name="changeVersion">
+
+		<replaceregexp flags="g" encoding="UTF-8" byline="true">
+			<regexp pattern="android:versionCode(.*)1" />
+			<substitution expression="android:versionCode=&quot;${app.version}" />
+			<fileset dir="" includes="AndroidManifest.xml" />
+		</replaceregexp>
+		<replaceregexp flags="g" encoding="UTF-8" byline="true">
+			<regexp pattern="android:versionName(.*)1.0" />
+			<substitution expression="android:versionName=&quot;${app.version}" />
+			<fileset dir="" includes="AndroidManifest.xml" />
+		</replaceregexp>
+	</target>
+
+	<!--修改应用名称-->
+	<target name="changeAppname">
+		<replaceregexp byline="false" flags="g">
+
+			<regexp pattern="android:label=&quot;(.*)&quot;" />
+
+			<substitution expression="android:label=&quot;${app.name}&quot;" />
+
+			<fileset dir="" includes="AndroidManifest.xml" />
+		</replaceregexp>
+	</target>
+
+	<!--打包生成单个 【执行此步骤务必将命令行定位到工程目录下】-->
+	<target name="deployone">
+		<property name="out.final.file" location="../OutApk/${app.name}_${app.version}_${channel}.apk" />
+		<antcall target="clean" />
+		<antcall target="release" />
+	</target>
+	<!--根据渠道号打包-->
+	<target name="deploychannels">
+		<foreach delimiter="," list="${market_channels}" param="channel" target="modify_manifest">
+		</foreach>
+	</target>
+
+	<target name="modify_manifest">
+
+		<replaceregexp byline="false" flags="g">
+
+			<regexp pattern="android:value=&quot;(.*)&quot; android:name=&quot;app_key&quot;" />
+
+			<substitution expression="android:value=&quot;${channel}&quot; android:name=&quot;app_key&quot;" />
+
+			<fileset dir="" includes="AndroidManifest.xml" />
+		</replaceregexp>
+
+
+		<!--
+		<property name="out.final.file" location="../OutApk/${app.name}_${channel}_${pktime}.apk" />
+		
+		<property name="out.final.file" location="../OutApk/${app.name}_${app.version}.apk" />
+		<antcall target="clean" />
+
+		<antcall target="release" />
+		-->
+		<antcall target="deployone"></antcall>
+	</target>
+
+
+
+</project>
